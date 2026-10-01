@@ -117,10 +117,16 @@ the cost of catching a minority of all failures. Moving the threshold trades pre
 The engineered production-order feature `id_gap_next` ranks 6th, showing that *when* a part was made
 carries signal beyond its own measurements.
 
-| Edge | Value |
+**Edge deployment** (ID-classifier CNN trained on DCASE fan, ONNX Runtime, CPU only, 4 threads, laptop Intel CPU;
+time covers the full path from raw audio to prediction, including log-mel extraction):
+
+| Metric | Value |
 |---|---|
-| INT8 model size | |
-| Latency per 10 s clip | |
+| Model size, FP32 → INT8 | 1.25 MB → **0.33 MB** |
+| Latency per 10 s clip (median / p95) | **71.2 ms** / 79.0 ms |
+| Real-time factor | 0.007 (about 140× faster than real time) |
+
+Re-run `python -m machine_guardian.edge_export bench` on a Raspberry Pi to measure true edge latency.
 
 ## What was verified, and how
 
