@@ -1,0 +1,10 @@
+{
+  "model": "fan_idcnn.int8.onnx",
+  "model_mb": 0.33,
+  "device": "AMD64 / Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "threads": 4,
+  "clip_seconds": 10.0,
+  "latency_ms_median": 72.5,
+  "latency_ms_p95": 75.5,
+  "real_time_factor": 0.0072
+}

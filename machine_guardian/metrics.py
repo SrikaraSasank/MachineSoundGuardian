@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.stats import hmean
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import roc_auc_score
 
 
 def auc(y, s) -> float:
@@ -11,16 +11,13 @@ def auc(y, s) -> float:
 
 
 def pauc(y, s, max_fpr: float = 0.1) -> float:
-    """Partial AUC over FPR in [0, max_fpr], normalised by max_fpr.
-
-    DCASE uses the *uncorrected* pAUC (sklearn's `max_fpr` applies the McClish
-    correction, which gives different numbers), so we integrate the ROC directly.
+    """Partial AUC over FPR in [0, max_fpr], exactly as the official DCASE
+    Task 2 evaluator computes it: scikit-learn's `roc_auc_score(max_fpr=...)`,
+    which applies the McClish standardisation (random scorer = 0.5,
+    perfect = 1.0). This makes our numbers directly comparable to the
+    published baseline tables.
     """
-    fpr, tpr, _ = roc_curve(y, s)
-    stop = np.searchsorted(fpr, max_fpr, side="right")
-    x = np.concatenate([fpr[:stop], [max_fpr]])
-    y_ = np.concatenate([tpr[:stop], [np.interp(max_fpr, fpr, tpr)]])
-    return float(np.trapezoid(y_, x) / max_fpr)
+    return float(roc_auc_score(y, s, max_fpr=max_fpr))
 
 
 def official_score(aucs_source, aucs_target, paucs) -> float:

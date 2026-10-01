@@ -26,8 +26,8 @@ and traces them back to the stations responsible.
 |---|---|
 | `audio_features.py` | Log-mel spectrograms in pure numpy/scipy, so the same code runs on a laptop and a Raspberry Pi |
 | `detectors.py` | Unsupervised detectors trained on normal sound only: PCA reconstruction, GMM, and a **domain-normalised kNN** that adapts to new operating conditions from a handful of clips |
-| `torch_models.py` | GPU models: the DCASE dense autoencoder baseline, and a **self-supervised ID-classifier CNN** (learns to recognise machine section, domain and operating attributes; anomalies break those cues) with mixup and class balancing |
-| `evaluate_audio.py` | DCASE protocol: per-section AUC (source / target domain), pAUC (FPR ≤ 0.1, uncorrected), official harmonic-mean score |
+| `torch_models.py` | GPU models: the DCASE dense autoencoder baseline, and a **self-supervised ID-classifier CNN** (learns to recognise machine section, domain and operating attributes; scores anomalies by embedding nearest-neighbour distance) with mixup and class balancing |
+| `evaluate_audio.py` | DCASE protocol: per-section AUC (source / target domain), pAUC (FPR ≤ 0.1, standardised exactly as the official evaluator), official harmonic-mean score |
 | `explain.py` | **Envelope analysis** from vibration engineering: shaft speed vs. the repetition frequency of high-frequency impacts separates imbalance (1×), bearing defects (non-integer multiple), and blade-pass / gear-mesh (integer multiple) |
 | `ticket_agent.py` | Hybrid alerting (ML score + physics guard rail), LLM ticket writer (Ollama locally or Claude API), **grounding check** that rejects any frequency the LLM mentions that isn't in the evidence |
 | `tabular_bosch.py` | Bosch Production Line Performance (1.18 M parts, 968 features, ~0.58 % failures): process-route, cycle-time and production-order features, LightGBM, MCC-optimal threshold, native TreeSHAP aggregated per station |
@@ -69,19 +69,53 @@ Approximate cost on a 32 GB laptop with an RTX 4060: audio sklearn models minute
 Fill these from `results\audio_summary.json`, `results\bosch_summary.json`, `results\edge_benchmark.json`,
 or just run `python -m machine_guardian.resume`.
 
+**DCASE 2023 Task 2, development set, fan + valve** (1,000 normal training clips per machine: 990 source,
+10 target; 200 labelled test clips each). Mean over the two machines; pAUC uses FPR ≤ 0.1 with the official
+evaluator's standardisation (random = 50 %); official score = harmonic mean of all AUCs and pAUCs.
+
 | Detector | AUC source | AUC target | pAUC | Official score |
 |---|---|---|---|---|
-| kNN (pooled baseline) | | | | |
-| kNN (domain-normalised) | | | | |
-| PCA / GMM | | | | |
-| Dense AE (DCASE baseline arch.) | | | | |
-| ID-classifier CNN | | | | |
+| *Official DCASE 2023 baseline (AE, MSE), published numbers* | *67.8 %* | *43.4 %* | *55.1 %* | *0.525* |
+| **PCA reconstruction (ours)** | **68.3 %** | **47.9 %** | 54.1 % | **0.540** |
+| ID-classifier CNN + embedding kNN (ours) | 59.0 % | 49.7 % | 50.8 % | 0.517 |
+| Dense autoencoder (ours, baseline architecture) | 64.1 % | 41.5 % | 54.1 % | 0.502 |
+| kNN, domain-normalised (ours) | 40.9 % | 49.3 % | 50.2 % | 0.448 |
+| kNN, pooled | 42.3 % | 44.3 % | 49.6 % | 0.430 |
+| GMM | 55.9 % | 32.3 % | 49.8 % | 0.398 |
 
-| Bosch | Value |
+Per machine, the strongest results against the published baseline:
+
+| Machine / metric | Baseline | Ours |
+|---|---|---|
+| Fan, AUC source | 80.2 % | **85.6 %** (PCA) |
+| Fan, AUC target | 36.2 % | **60.6 %** (ID-CNN) / 40.9 % (PCA) |
+| Valve, AUC source | 55.4 % | **64.7 %** (ID-CNN) |
+
+**Reading these honestly.** DCASE 2023 is deliberately hard: one section per machine, only 10 target-domain
+training clips, and anomalies that are often subtle. Even the official baseline sits near chance on the
+target domain. The simple PCA detector edges past the baseline overall; the ID-CNN helps most where
+the domain shifts (fan target +24 points) but is not yet consistent across machines. The deep models are
+trained without a fixed random seed, so their numbers move by several points between runs (the
+autoencoder's fan source AUC ranged 74.6–85.4 % across two runs); averaging several seeds is the obvious
+next step before drawing strong conclusions.
+
+**Bosch Production Line Performance** (first 300,000 parts, 968 measurements + 9 engineered features,
+0.565 % failure rate, LightGBM, 5-fold stratified CV, out-of-fold predictions):
+
+| Metric | Value |
 |---|---|
-| MCC (5-fold OOF) | |
-| PR-AUC (random = failure rate) | |
-| Top failure stations (SHAP) | |
+| MCC (threshold chosen on out-of-fold predictions) | **0.324** |
+| PR-AUC | **0.228** (random = 0.0056, about 40× better) |
+| ROC-AUC | 0.788 |
+| Precision / recall at that threshold | 72 % / 15 % (flags 0.12 % of parts) |
+| Top failure drivers (share of mean \|SHAP\|) | L3_S30 (16.7 %), L3_S29 (15.1 %), L1_S24 (8.1 %) |
+
+![Failure drivers by station](results/bosch_station_importance.png)
+
+The operating point favours a short, trustworthy inspection list: 7 in 10 flagged parts really fail, at
+the cost of catching a minority of all failures. Moving the threshold trades precision for recall.
+The engineered production-order feature `id_gap_next` ranks 6th, showing that *when* a part was made
+carries signal beyond its own measurements.
 
 | Edge | Value |
 |---|---|

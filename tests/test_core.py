@@ -51,7 +51,7 @@ def test_pauc_perfect_and_random():
     y = np.r_[np.zeros(500), np.ones(500)]
     assert abs(pauc(y, y) - 1.0) < 1e-9
     s = np.random.default_rng(0).random(1000)
-    assert pauc(y, s) < 0.2  # random scorer: pAUC(0.1) ~= 0.05
+    assert 0.4 < pauc(y, s) < 0.6  # DCASE / McClish-standardised pAUC: random scorer ~= 0.5
 
 
 if __name__ == "__main__":

@@ -1,0 +1,51 @@
+{
+  "source": "Kaggle Bosch Production Line Performance (data\\bosch)",
+  "model": "LightGBM",
+  "n_parts": 300000,
+  "n_features": 977,
+  "failure_rate": 0.00565,
+  "cv_folds": 5,
+  "auc": 0.7877,
+  "pr_auc": 0.2277,
+  "pr_auc_random": 0.0056,
+  "mcc": 0.3244,
+  "threshold": 0.6600429616263663,
+  "recall_at_threshold": 0.1481,
+  "precision_at_threshold": 0.7171,
+  "pct_parts_flagged": 0.00117,
+  "top_drivers": [
+    {
+      "driver": "L3_S30",
+      "share": 0.1666
+    },
+    {
+      "driver": "L3_S29",
+      "share": 0.1514
+    },
+    {
+      "driver": "L1_S24",
+      "share": 0.0812
+    },
+    {
+      "driver": "L0_S0",
+      "share": 0.0467
+    },
+    {
+      "driver": "L3_S33",
+      "share": 0.035
+    },
+    {
+      "driver": "[engineered] id_gap_next",
+      "share": 0.0337
+    },
+    {
+      "driver": "L1_S25",
+      "share": 0.0323
+    },
+    {
+      "driver": "L0_S9",
+      "share": 0.0312
+    }
+  ],
+  "runtime_seconds": 288.8
+}

@@ -2,11 +2,12 @@
 
   ae    - dense autoencoder on 5-frame log-mel context (the official DCASE
           baseline architecture), score = reconstruction error
-  idcnn - self-supervised auxiliary-classification CNN: learns to tell the
-          machine sections / operating domains apart using normal data only.
-          Anomalous sounds break those learned cues, so the score is the
-          negative log-probability of the clip's true section. This family of
-          methods is what most top DCASE systems build on.
+  idcnn - self-supervised auxiliary-classification CNN: learns to tell
+          machine sections, domains and operating attributes (speed, load...)
+          apart using normal data only. The anomaly score is the cosine
+          distance from a clip's embedding to its nearest normal training clip
+          (per domain) - the embedding + kNN recipe most top DCASE 2023
+          systems build on.
 
 Both expose the same fit(mels, domains, sections) / score(...) interface as
 the scikit-learn detectors.
@@ -102,6 +103,10 @@ class SectionCNN(nn.Module):
         h = self.features(x).mean(dim=(2, 3))
         return self.head(F.relu(self.emb(h)))
 
+    def embed(self, x):
+        """L2-normalised embedding used for anomaly scoring."""
+        return F.normalize(self.emb(self.features(x).mean(dim=(2, 3))), dim=1)
+
 
 def _patches(S: np.ndarray, hop: int = PATCH_T // 2) -> np.ndarray:
     T = S.shape[1]
@@ -162,18 +167,39 @@ class IDCNNDetector:
             if ep % 5 == 0 or ep == self.epochs - 1:
                 print(f"  [idcnn] epoch {ep:3d}  loss {tot / len(X):.4f}")
         self.cls_idx = cls_idx
+        # memory bank of normal training embeddings, per (section, domain)
+        E = self._embed_clips(mels)
+        self.bank = {}
+        for e, s, d in zip(E, sections, domains):
+            self.bank.setdefault((s, d.split("|")[0]), []).append(e)
+        self.bank = {k: torch.stack(v) for k, v in self.bank.items()}
         return self
 
     @torch.no_grad()
-    def score(self, mels, domains, sections):
+    def _embed_clips(self, mels):
+        """One embedding per clip: mean of its patch embeddings, re-normalised."""
         self.model.eval()
         out = []
-        for S, s, d in zip(mels, sections, domains):
+        for S in mels:
             x = torch.from_numpy((_patches(S) - self.mu) / self.sd).float().unsqueeze(1).to(DEVICE)
-            logp = F.log_softmax(self.model(x), dim=1)
-            # a clip is normal if it looks like its own section in *either* domain
-            idx = [self.cls_idx[c] for c in self.cls_idx if c.split("|")[0] == s]
-            out.append(float(-logp[:, idx].logsumexp(1).mean().item()))
+            out.append(F.normalize(self.model.embed(x).mean(0), dim=0))
+        return out
+
+    @torch.no_grad()
+    def score(self, mels, domains, sections):
+        """Anomaly score = cosine distance to the nearest normal training clip,
+        taking the smaller distance over the source and target domains.
+
+        The classifier is only a training signal: learning to tell operating
+        conditions (sections, domains, attributes such as speed or load) apart
+        forces the embedding to capture fine machine-sound detail. Scoring by
+        nearest-neighbour distance in that embedding works even when a machine
+        has a single section (DCASE 2023), where softmax-based scores collapse.
+        """
+        out = []
+        for e, s in zip(self._embed_clips(mels), sections):
+            dists = [1.0 - float((bank @ e).max()) for (bs, _), bank in self.bank.items() if bs == s]
+            out.append(min(dists))
         return np.array(out)
 
     def export_inputs(self):

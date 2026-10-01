@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "dataset": "data\\dcase",
+    "machines": [
+      "fan",
+      "valve"
+    ],
+    "n_sections": 2,
+    "n_clips": 2400
+  },
+  "detectors": {
+    "ae": {
+      "auc_source": 0.6414,
+      "auc_target": 0.4147,
+      "pauc": 0.5405,
+      "official_score": 0.5023,
+      "train_eval_seconds": 171.0
+    },
+    "gmm": {
+      "auc_source": 0.5588,
+      "auc_target": 0.3227,
+      "pauc": 0.4982,
+      "official_score": 0.3983,
+      "train_eval_seconds": 5.1
+    },
+    "idcnn": {
+      "auc_source": 0.5899,
+      "auc_target": 0.4968,
+      "pauc": 0.5084,
+      "official_score": 0.5172,
+      "train_eval_seconds": 129.2
+    },
+    "knn": {
+      "auc_source": 0.4091,
+      "auc_target": 0.4932,
+      "pauc": 0.5024,
+      "official_score": 0.4479,
+      "train_eval_seconds": 1.1
+    },
+    "knn_naive": {
+      "auc_source": 0.4226,
+      "auc_target": 0.4429,
+      "pauc": 0.4961,
+      "official_score": 0.4295,
+      "train_eval_seconds": 1.0
+    },
+    "pca": {
+      "auc_source": 0.6833,
+      "auc_target": 0.4789,
+      "pauc": 0.5411,
+      "official_score": 0.5397,
+      "train_eval_seconds": 14.3
+    }
+  }
+}
